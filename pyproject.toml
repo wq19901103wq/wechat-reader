@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-reader"
+version = "0.1.1"
+description = "Shared raw WeChat capture, deduplication, SQLite storage and read-only queries"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/wq19901103wq/wechat-reader"
+
+[project.optional-dependencies]
+store = ["SQLAlchemy>=2.0,<3"]
+capture = [
+    "SQLAlchemy>=2.0,<3", "numpy>=1.24", "Pillow>=10", "scipy>=1.10",
+    "pyobjc-framework-Cocoa>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",
+    "openai>=1", "httpx>=0.27",
+    "python-dotenv>=1",
+]
+
+[project.scripts]
+wechat-reader = "wechat_reader.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
