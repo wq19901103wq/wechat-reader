@@ -78,6 +78,6 @@ RPA 原有发送和剪贴板能力仍留在 RPA；共享包只含采集所需的
 
 本仓库是微信原始采集、保存和读取的唯一源码归属；个人助理 `personal-context` 和 `wechat-mac-rpa` 通过 Python 依赖消费同一固定提交。聊天理解归个人助理记忆层，回复生成归 `digital-human`，发送与回复状态归 RPA；不使用整个 RPA 的 submodule，也不向消费者复制本包源码。
 
-组件尚未发布到 PyPI。私有 GitHub 仓库需要读取权限，先用 `gh auth login` 和 `gh auth setup-git` 配置 HTTPS 访问；消费者依赖中的提交号必须同步更新。查询安装不带 extras，采集消费者使用 `[capture]`。本地开发可在本仓库执行 `python -m pip install -e '.[capture]'`；已安装的 wheel 不依赖源码目录位置，整理仓库不需要重启采集服务。
+组件尚未发布到 PyPI，消费者通过公开 GitHub HTTPS 地址匿名安装，无需 GitHub token；消费者依赖中的提交号必须同步更新。查询安装不带 extras，采集消费者使用 `[capture]`。本地开发可在本仓库执行 `python -m pip install -e '.[capture]'`；已安装的 wheel 不依赖源码目录位置，整理仓库不需要重启采集服务。
 
-RPA 的 GitHub Actions 使用仅能读取本库的 `WECHAT_READER_TOKEN` 仓库 secret；私有依赖对无权访问的用户和外部 fork 不可用。不要把 token、数据库或登录态放入源码、依赖 URL 或提交历史。MIT 许可与原贡献者署名保留在 [LICENSE](LICENSE)。
+RPA 的 GitHub Actions 与外部 fork 均可匿名安装公开依赖，无需额外的仓库 secret。聊天记录、数据库、截图、日志、密钥与登录态保存在本地被 Git 忽略的位置，不进入源码、依赖 URL 或提交历史。MIT 许可与原贡献者署名保留在 [LICENSE](LICENSE)。
