@@ -322,8 +322,9 @@ class LayoutParser:
             注意：不基于内容（如"是不是数字"）清洗，只去掉明显的符号前缀。
             头像数字/乱码应在 nick_col 阶段通过面积过滤排除，不在此处处理。
             """
-            # 去掉开头到第一个中文字符之前的噪声符号（最多10个字符）
-            noise_chars = set('！＠@#$%^&*()[]{}<>"\'，。、；：？！-~+=|\\/ \t\n\r0123456789')
+            # 去掉开头到第一个中文字符之前的噪声符号（最多10个字符）。
+            # 不剥数字：数字开头的真实昵称/群名（如 "2024届校友群"）必须保留。
+            noise_chars = set('！＠@#$%^&*()[]{}<>"\'，。、；：？！-~+=|\\/ \t\n\r')
             i = 0
             while i < min(10, len(text)) and text[i] in noise_chars:
                 i += 1
@@ -358,7 +359,7 @@ class LayoutParser:
                 if not (y_min - 20 <= elem.center.y <= y_max + 20):
                     continue
                 if elem.bbox.x > chat_list_x_max * 0.70:
-                    if elem.text in TIMESTAMP_PATTERNS or (len(elem.text) >= 4 and elem.text[1] == ':' and elem.text[:1].isdigit() and elem.text[2:].isdigit()):
+                    if any(re.match(p, elem.text) for p in TIMESTAMP_PATTERNS) or (len(elem.text) >= 4 and elem.text[1] == ':' and elem.text[:1].isdigit() and elem.text[2:].isdigit()):
                         timestamp = elem.text
 
             # 列表项的 rect
