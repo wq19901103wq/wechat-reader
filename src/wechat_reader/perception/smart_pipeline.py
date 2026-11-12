@@ -358,10 +358,9 @@ class SmartPerceptionPipeline:
             _logger.info("[SmartPipeline] 无历史截图，首次运行，调用API")
             self._consecutive_low_diff = 0
 
-        self._last_screenshot = Path(image_path)
-        self._last_hash = self._compute_hash(image_path)
-
         if skip_api:
+            self._last_screenshot = Path(image_path)
+            self._last_hash = self._compute_hash(image_path)
             self.skip_count += 1
             _logger.info(
                 f"[SmartPipeline] 本地跳过统计: skip_count={self.skip_count}, "
@@ -377,10 +376,28 @@ class SmartPerceptionPipeline:
             f"skip_count={self.skip_count}"
         )
         result = self._run_with_api(image_path, window_rect, scale_factor)
-        if result:
-            for message in result.messages:
-                message.observed_at = t_capture_start
-        _logger.info(f'[DEBUG] _run_with_api returned OK, msgs={len(result.messages) if result else 0}')
+        if result is None:
+            # API 失败：不推进 diff 基线、不覆盖 _last_perception，
+            # 下个 tick 会重新检测到变化并重试 API，避免静默永久丢消息
+            _logger.error("[SmartPipeline] API 路径失败，保留旧基线与缓存，下个 tick 重试")
+            if self._last_perception is not None:
+                return PerceptionResult(
+                    chat_name=self._last_perception.chat_name,
+                    messages=[],
+                    chat_list_items=self._last_perception.chat_list_items,
+                    screenshot_path=image_path,
+                    is_group=self._last_perception.is_group,
+                    window_rect=window_rect,
+                    scale_factor=scale_factor,
+                    is_service_account_list=self._last_perception.is_service_account_list,
+                )
+            return None
+        # API 成功后才推进基线
+        self._last_screenshot = Path(image_path)
+        self._last_hash = self._compute_hash(image_path)
+        for message in result.messages:
+            message.observed_at = t_capture_start
+        _logger.info(f'[DEBUG] _run_with_api returned OK, msgs={len(result.messages)}')
         return result
 
     # -----------------------------------------------------------------------
@@ -591,6 +608,9 @@ class SmartPerceptionPipeline:
 
         # 2. 调用 API（用于准确识别昵称、未读数、消息内容）
         api_result = self._run_api_pipeline(image_path)
+        if api_result is None:
+            # API 失败：不覆盖 _last_perception，交由 perceive() 保留旧基线重试
+            return None
 
         api_messages = api_result.get("messages", [])
         api_chat_name = api_result.get("chat_name", "")
@@ -743,23 +763,34 @@ class SmartPerceptionPipeline:
         client = self._get_api_client()
         if client is None:
             _logger.warning("[SmartPipeline] API客户端不可用，跳过API调用")
-            return {}
+            return None
         t0 = time.time()
         _logger.info(f"[SmartPipeline] API请求开始: model=qwen3.6-flash, image={Path(image_path).name}")
         try:
             raw, prompt, response_text, thinking = client.recognize_with_debug(image_path)
+            if not isinstance(raw, dict):
+                raise ValueError(f"API 返回结构异常: {type(raw).__name__}")
+            messages = raw.get("messages", [])
+            chat_list = raw.get("chat_list", [])
+            chat_name = raw.get("chat_name", "")
+            if not isinstance(messages, list) or not all(isinstance(m, dict) for m in messages):
+                raise ValueError("API 返回 messages 结构异常")
+            if not isinstance(chat_list, list) or not all(isinstance(item, dict) for item in chat_list):
+                raise ValueError("API 返回 chat_list 结构异常")
+            if not isinstance(chat_name, str):
+                raise ValueError("API 返回 chat_name 结构异常")
             latency_ms = (time.time() - t0) * 1000
             _logger.info(
                 f"[SmartPipeline] API请求成功: latency={latency_ms:.0f}ms, "
-                f"chat_name='{raw.get('chat_name', '')}', "
-                f"messages={len(raw.get('messages', []))}, "
-                f"chat_list={len(raw.get('chat_list', []))}, "
+                f"chat_name='{chat_name}', "
+                f"messages={len(messages)}, "
+                f"chat_list={len(chat_list)}, "
                 f"thinking={len(thinking)}字"
             )
             return {
-                "chat_name": raw.get("chat_name", ""),
-                "messages": raw.get("messages", []),
-                "chat_list": raw.get("chat_list", []),
+                "chat_name": chat_name,
+                "messages": messages,
+                "chat_list": chat_list,
                 "prompt": prompt,
                 "response": response_text,
                 "thinking": thinking,
@@ -767,7 +798,7 @@ class SmartPerceptionPipeline:
         except Exception as e:
             latency_ms = (time.time() - t0) * 1000
             _logger.error(f"[SmartPipeline] API请求失败({latency_ms:.0f}ms): {e}")
-            return {}
+            return None
 
     def _get_api_client(self) -> Optional[_QwenAPIClient]:
         """延迟初始化 API 客户端，失败时返回 None。"""
