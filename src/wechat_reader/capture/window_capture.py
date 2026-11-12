@@ -122,9 +122,16 @@ class WindowCapture:
         """尝试激活微信应用"""
         self.automation.activate_app("WeChat")
 
-    def _get_scale_factor(self) -> float:
-        """获取主屏幕的 Retina 缩放因子"""
+    def _get_scale_factor(self, rect: "Rect | None" = None) -> float:
+        """获取缩放因子：优先取窗口所在屏幕，多显示器场景不再误用主屏"""
         try:
+            if rect is not None:
+                mx, my = rect.x + rect.width / 2, rect.y + rect.height / 2
+                for screen in AppKit.NSScreen.screens() or []:
+                    frame = screen.frame()
+                    if (frame.origin.x <= mx <= frame.origin.x + frame.size.width
+                            and frame.origin.y <= my <= frame.origin.y + frame.size.height):
+                        return float(screen.backingScaleFactor())
             screen = AppKit.NSScreen.mainScreen()
             if screen is not None:
                 return float(screen.backingScaleFactor())
@@ -268,7 +275,7 @@ class WindowCapture:
                 "截图验证失败：截到的内容不像微信窗口，可能有其他窗口覆盖"
             )
 
-        scale_factor = self._get_scale_factor()
+        scale_factor = self._get_scale_factor(rect)
         t_total_ms = (time.time() - t_capture_start) * 1000
         _logger.info(
             f"[Perf][Capture] total={t_total_ms:.0f}ms "

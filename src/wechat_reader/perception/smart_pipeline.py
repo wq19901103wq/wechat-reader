@@ -643,7 +643,7 @@ class SmartPerceptionPipeline:
 
         # 3. 结合：本地 Layout 提供准确 rect，API 提供准确 nickname/unread_count
         t_merge_start = time.time()
-        chat_list_items = self._merge_chat_list(local_chat_list, api_chat_list)
+        chat_list_items = self._merge_chat_list(local_chat_list, api_chat_list, window_rect)
         messages = self._convert_api_messages(api_messages, api_chat_name)
         t_merge_ms = (time.time() - t_merge_start) * 1000
 
@@ -675,7 +675,7 @@ class SmartPerceptionPipeline:
         return result
 
     def _merge_chat_list(
-        self, local_chat_list: list, api_chat_list: list
+        self, local_chat_list: list, api_chat_list: list, window_rect=None
     ) -> list:
         """结合本地 Layout 的准确位置和 API 的准确昵称/未读数。
 
@@ -686,9 +686,12 @@ class SmartPerceptionPipeline:
         4. 如果数量不同，用昵称模糊匹配
         """
         if not local_chat_list:
-            # 本地 Layout 失败，回退到虚拟坐标。1738×1602 为 2x Retina 参考尺寸。
+            # 本地 Layout 失败，回退到虚拟坐标。使用当前窗口真实尺寸，不再写死 Retina 参考值，
+            # 非 Retina 或外接显示器上点击坐标不再整体错位
             _logger.warning("[SmartPipeline] 本地Layout无chat_list，回退到虚拟坐标")
-            return self._build_chat_list_items_from_api(api_chat_list, 1738, 1602, "")
+            width = int(window_rect.width) if window_rect is not None else 1738
+            height = int(window_rect.height) if window_rect is not None else 1602
+            return self._build_chat_list_items_from_api(api_chat_list, width, height, "")
 
         # 本地按 y 坐标排序（确保从上到下）
         sorted_local = sorted(local_chat_list, key=lambda item: item.rect.y)
