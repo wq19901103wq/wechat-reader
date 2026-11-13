@@ -275,7 +275,7 @@ class WindowCapture:
                 "截图验证失败：截到的内容不像微信窗口，可能有其他窗口覆盖"
             )
 
-        scale_factor = self._get_scale_factor(rect)
+        scale_factor = self._get_scale_factor(window_rect)
         t_total_ms = (time.time() - t_capture_start) * 1000
         _logger.info(
             f"[Perf][Capture] total={t_total_ms:.0f}ms "

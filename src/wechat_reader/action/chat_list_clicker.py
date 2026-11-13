@@ -83,7 +83,7 @@ class ChatListClicker:
             return False
         ChatListClicker._last_click_time = time.time()
         # Step 3: 等待右侧聊天内容加载
-        time.sleep(2.5)
+        time.sleep(0.5)
         _logger.info(
             f"点击聊天列表: screen=({abs_x},{abs_y}) "
             f"window=({self.window_rect.x},{self.window_rect.y}) "
