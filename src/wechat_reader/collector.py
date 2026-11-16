@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import time
 
-from .capture_lease import CaptureLease
+from .capture_lease import CaptureBusy, CaptureLease
 from .utils.chat_utils import _normalize_chat_name
 
 
@@ -91,14 +91,17 @@ class WeChatCollector:
     def run(self, *, interval=5.0, on_result=None, max_ticks=None):
         if interval <= 0 or (max_ticks is not None and max_ticks < 1):
             raise ValueError("interval and max_ticks must be positive")
-        with CaptureLease():
-            count = 0
-            while True:
-                started = time.monotonic()
-                result = self._tick(switch_unread=self.switch_unread)
-                if on_result:
-                    on_result(result)
-                count += 1
-                if max_ticks is not None and count >= max_ticks:
-                    return
-                time.sleep(max(0, interval - (time.monotonic() - started)))
+        count = 0
+        while True:
+            started = time.monotonic()
+            try:
+                with CaptureLease():
+                    result = self._tick(switch_unread=self.switch_unread)
+            except CaptureBusy:
+                result = None
+            if result is not None and on_result:
+                on_result(result)
+            count += 1
+            if max_ticks is not None and count >= max_ticks:
+                return
+            time.sleep(max(0, interval - (time.monotonic() - started)))
